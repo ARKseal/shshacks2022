@@ -4,6 +4,7 @@ import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputConnection;
@@ -59,6 +60,8 @@ public class MyInputMethodService extends InputMethodService implements Keyboard
                     break;
                 default :
                     char code = (char) primaryCode;
+
+
                     if(Character.isLetter(code) && caps){
                         code = Character.toUpperCase(code);
                     }

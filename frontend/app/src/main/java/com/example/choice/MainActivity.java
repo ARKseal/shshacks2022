@@ -3,6 +3,7 @@ package com.example.choice;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.util.ExtraConstants;
@@ -25,5 +26,11 @@ public class MainActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+
     }
+
+
+
+
 }

@@ -60,7 +60,7 @@ public class AuthUIActivity extends AppCompatActivity
         // Workaround for vector drawables on API 19
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true);
 
-        //mBinding.signIn.setOnClickListener(view -> signIn());
+        mBinding.signIn.setOnClickListener(view -> signIn());
         signIn();
 
         //catchEmailLinkSignIn();
@@ -206,5 +206,13 @@ public class AuthUIActivity extends AppCompatActivity
         // Successfully signed in
         IdpResponse response = result.getIdpResponse();
         handleSignInResponse(result.getResultCode(), response);
+
+        redirect();
+    }
+
+    public void redirect(){
+        Intent intent = new Intent(this,   redirect.class);
+        startActivity(intent);
+
     }
 }

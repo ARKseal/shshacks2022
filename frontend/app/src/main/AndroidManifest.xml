@@ -9,8 +9,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Choice">
-
-        <activity android:name=".AuthUIActivity"
+        <activity
+            android:name=".redirect"
+            android:exported="false" />
+        <activity
+            android:name=".AuthUIActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -22,8 +25,6 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
-        <!--<activity
-            android:name=".AuthUIActivity"
-            android:label="@string/title_auth_activity" /> -->
     </application>
+
 </manifest>
