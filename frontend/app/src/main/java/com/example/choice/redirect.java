@@ -23,6 +23,8 @@ public class redirect extends AppCompatActivity {
             }
         });
 
+
+
     }
 
     public void settings(){
