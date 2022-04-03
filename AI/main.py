@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import uvicorn
 
 import spacy
 from spacytextblob.spacytextblob import SpacyTextBlob
@@ -19,3 +20,6 @@ def extract_entities(data: Data):
     polarity = doc._.blob.polarity
     subjectivity = doc._.blob.subjectivity
     return {"message": data.text, "polarity": polarity, "subjectivity": subjectivity}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=5050)

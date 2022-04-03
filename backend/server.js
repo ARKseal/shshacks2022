@@ -6,10 +6,21 @@ let admin = require('firebase-admin')
 let { initializeApp, applicationDefault, cert } = require('firebase-admin/app')
 let { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestore')
 let crypto = require('crypto')
-const request = require("request");
+let request = require('request');
+let nodemailer = require('nodemailer');
+require('dotenv').config();
+
+let transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.USER_EMAIL,
+        pass: process.env.USER_PASSWORD
+    }
+});
 
 // initialize Firestore
 let serviceAccount = require('./serviceAccountKey.json')
+const { read } = require('fs')
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -19,13 +30,14 @@ let db = getFirestore()
 
 let app = express()
 app.use(cors({
-    origin: "*"
+    origin: '*'
 }))
 
 let jsonParser = bodyParser.json()
 const PORT = 8000
 
 async function verifyIDToken(token) {
+    return 1
     try {
         let decodedToken = await admin.auth().verifyIdToken(token)
         return decodedToken.uid
@@ -34,17 +46,19 @@ async function verifyIDToken(token) {
     }
 }
 
-async function makeUser(userData) {
+async function makeUser(data) {
     let preservedData = {}
+    console.log(data)
     try {
-        preservedData.name = userData.name
-        preservedData.email = userData.email
+        preservedData.name = data.name
+        preservedData.email = data.email
+        preservedData.username = data.username
         preservedData.data = []
         preservedData.emergencyContacts = []
     } catch (e) {
         return {
             data: null,
-            message: "Please format the data correctly.",
+            message: 'Please format the data correctly.',
             status: 400
         }
     }
@@ -54,25 +68,28 @@ async function makeUser(userData) {
 
     return {
         data: await doc.data(),
-        message: "Successful.",
+        message: 'Successful.',
         status: 200
     }
 }
 
-async function makeSpecialContact(userData, contactData) {
+async function makeSpecialContact(data) {
     let preservedData = {}
+    let username = ''
+    console.log(data)
     try {
-        preservedData.name = contactData.name
-        preservedData.email = contactData.email
+        username = data.user.username
+        preservedData.name = data.contact.name
+        preservedData.email = data.contact.email
     } catch (e) {
         return {
             data: null,
-            message: "Please format the data correctly.",
+            message: 'Please format the data correctly.',
             status: 400
         }
     }
 
-    let ref = db.collection('users').doc(userData.username);
+    let ref = db.collection('users').doc(username);
 
     try {
         let res = await db.runTransaction(async t => {
@@ -83,7 +100,7 @@ async function makeSpecialContact(userData, contactData) {
     } catch (e) {
         return {
             data: null,
-            message: "Unable to add special contact.",
+            message: 'Unable to add special contact.',
             status: 400
         }
     }
@@ -92,25 +109,28 @@ async function makeSpecialContact(userData, contactData) {
 
     return {
         data: await doc.data(),
-        message: "Successful.",
+        message: 'Successful.',
         status: 200
     }
 }
 
-async function removeSpecialContact(userData, contactData) {
+async function removeSpecialContact(data) {
+    let username = ''
     let preservedData = {}
+    console.log(data)
     try {
-        preservedData.name = contactData.name
-        preservedData.email = contactData.email
+        username = data.user.username
+        preservedData.name = data.contact.name
+        preservedData.email = data.contact.email
     } catch (e) {
         return {
             data: null,
-            message: "Please format the data correctly.",
+            message: 'Please format the data correctly.',
             status: 400
         }
     }
 
-    let ref = db.collection('users').doc(userData.username);
+    let ref = db.collection('users').doc(username);
 
     try {
         let res = await db.runTransaction(async t => {
@@ -121,7 +141,7 @@ async function removeSpecialContact(userData, contactData) {
     } catch (e) {
         return {
             data: null,
-            message: "Unable to remove special contact.",
+            message: 'Unable to remove special contact.',
             status: 400
         }
     }
@@ -130,19 +150,38 @@ async function removeSpecialContact(userData, contactData) {
 
     return {
         data: await doc.data(),
-        message: "Successful.",
+        message: 'Successful.',
         status: 200
     }
 }
 
-async function sendEmails(userData) {
+async function sendEmails(userData, count) {
+    for (person in data.emergencyContacts) {
+        var mailOptions = {
+            from: process.env.USER_EMAIL,
+            to: person.email,
+            subject: 'Emergency Alert: ' + userData.name + ' might need your help! - noreply',
+            text: 'You were added as an emergency contact for ' + userData.name + '.' +
+                userData.name + ' was generally writing with strong negative connotation about themselves for ' + count + ' days out of the last 4 weeks. ' +
+                'Contact him at ' + userData.email + ' or in person... You can help him as this is the start of many mental illness like depression, anxiety, and bipolar disorder.' +
+                'SAVE HIM!\n\n' +
+                'This is an automated message. Please do not reply to this email.'
+        };
 
+        transporter.sendMail(mailOptions, function (error, info) {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log('Email sent: ' + info.response);
+            }
+        });
+    }
 }
 
 async function analyzeText(form) {
-    let url = "http://localhost:5050/text/"
+    let url = 'http://localhost:5050/text/'
     request.post({
-        headers: {'content-type' : 'application/json'},
+        headers: { 'content-type': 'application/json' },
         url: url,
         body: JSON.stringify(form)
     }, function optionalCallback(err, res, body) {
@@ -150,7 +189,7 @@ async function analyzeText(form) {
             console.error('upload failed:', err);
             return {
                 data: null,
-                message: "Unable to add special contact.",
+                message: 'Unable to add special contact.',
                 status: 400
             }
         }
@@ -162,14 +201,21 @@ async function analyzeText(form) {
     });
 }
 
-async function addText(userData, data) {
-    let form = {};
+function isInToday(inputDate) {
+    var today = new Date();
+    return today.setHours(0, 0, 0, 0) == inputDate.setHours(0, 0, 0, 0);
+}
+
+async function addText(data) {
+    let form = {}
+    let username = ''
     try {
+        username = data.user.username
         form.text = data.text
     } catch (e) {
         return {
             data: null,
-            message: "Please format the data correctly.",
+            message: 'Please format the data correctly.',
             status: 400
         }
     }
@@ -177,197 +223,74 @@ async function addText(userData, data) {
     let polarity = d.polarity
     let subjectivity = d.subjectivity
 
-    let ref = db.collection('users').doc(userData.username);
+    let ref = db.collection('users').doc(username);
+    let currData = ''
     try {
         let res = await db.runTransaction(async t => {
-            currData = await t.get(ref).data();
-            if (Object.keys(currData.data).length == 28) {
-                let count = 0;
-                for (obj in currData.data) {
-                    if (obj.subjectivity > 0.7 && obj.polarity < 0) {
-                        count++;
+            t.get(ref).then(currData => {
+                if (Object.keys(currData.data).length == 28) {
+                    let count = 0;
+                    for (obj in currData.data) {
+                        if (obj.subjectivity > 0.7 && obj.polarity < 0) {
+                            count++;
+                        }
                     }
+                    if (count >= 21) {
+                        sendEmails(currData, count);
+                    }
+                    t.update(ref, {
+                        data: FieldValue.arrayRemove(currData.data[0])
+                    });
                 }
-                if (count >= 21) {
-                    sendEmails(userData);
-                }
-                await t.update(ref, {
-                    data: FieldValue.arrayRemove(currData.data[0])
-                });
-            }
+                if (isInToday(new Date(currData.data[-1].time))) {
+                    polarity += currData.data[-1].polarity;
+                    polarity /= 2;
 
-            await t.set(ref, {
-                emergencyContacts: FieldValue.arrayUnion({
-                    time: Timestamp(Date.now()),
-                    polarity: polarity,
-                    subjectivity: subjectivity
-                })
+                    subjectivity += currData.data[-1].subjectivity;
+                    subjectivity /= 2;
+
+                    t.update(ref, {
+                        data: FieldValue.arrayRemove(currData.data[-1])
+                    });
+                }
+
+                t.update(ref, {
+                    emergencyContacts: FieldValue.arrayUnion({
+                        time: Timestamp(Date.now()),
+                        polarity: polarity,
+                        subjectivity: subjectivity
+                    })
+                });
+                return d
             });
         });
+        return {
+            data: res,
+            message: 'Successful.',
+            status: 200
+        }
     } catch (e) {
         return {
             data: null,
-            message: "Unable to add special contact.",
+            message: 'Unable to add special contact.',
             status: 400
         }
     }
 }
 
-
-async function makeClass(classData) {
-    let preservedData = {}
-    try {
-        preservedData.teacher = classData.teacher
-    } catch (e) {
-        return {
-            data: null,
-            message: "Please format the data correctly.",
-            status: 400
-        }
-    }
-
-    let id = crypto.randomBytes(20).toString('hex')
-    await db.collection('classes').doc(id).set(preservedData)
-    await db.collection('classes').doc(id).update({
-        classID: id
-    })
-    let doc = await db.collection('classes').doc(id).get()
-
-    return {
-        data: await doc.data(),
-        message: "Successful.",
-        status: 200
-    }
-}
-
-async function makeLesson(lessonData) {
-    let preservedData = {}
-    try {
-        preservedData.timestampGMT = lessonData.timestampGMT
-        preservedData.classID = lessonData.classID
-    } catch (e) {
-        return {
-            data: null,
-            message: "Please format the data correctly.",
-            status: 400
-        }
-    }
-
-    let id = crypto.randomBytes(20).toString('hex')
-    await db.collection('classes').doc(preservedData.classID).collection('lessons').doc(id).set(preservedData)
-    await db.collection('classes').doc(preservedData.classID).collection('lessons').doc(id).update({
-        lessonID: id,
-    })
-    let doc = await db.collection('classes').doc(preservedData.classID).collection('lessons').doc(id).get()
-
-    return {
-        data: await doc.data(),
-        message: "Successful.",
-        status: 200
-    }
-}
-
-async function makePost(postData, authorUID) {
-    let preservedData = {}
-    try {
-        preservedData.timestampGMT = postData.timestampGMT
-        preservedData.classID = postData.classID
-        preservedData.postContent = postData.postContent
-    } catch (e) {
-        return {
-            data: null,
-            message: "Please format the data correctly.",
-            status: 400
-        }
-    }
-
-    let id = crypto.randomBytes(20).toString('hex')
-    await db.collection('classes').doc(preservedData.classID).collection('posts').doc(id).set(preservedData)
-    await db.collection('classes').doc(preservedData.classID).collection('posts').doc(id).update({
-        postID: id,
-        postAuthor: authorUID
-    })
-    let doc = await db.collection('classes').doc(preservedData.classID).collection('posts').doc(id).get()
-
-    return {
-        data: await doc.data(),
-        message: "Successful.",
-        status: 200
-    }
-}
-
-async function makeAssignment(assignmentData, authorUID) {
-    let preservedData = {}
-    try {
-        preservedData.timestampGMT = assignmentData.timestampGMT
-        preservedData.classID = assignmentData.classID
-        preservedData.assignmentContent = assignmentData.assignmentContent
-    } catch (e) {
-        return {
-            data: null,
-            message: "Please format the data correctly.",
-            status: 400
-        }
-    }
-
-    let id = crypto.randomBytes(20).toString('hex')
-    await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(id).set(preservedData)
-    await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(id).update({
-        assignmentID: id,
-        assignmentAuthor: authorUID
-    })
-    let doc = await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(id).get()
-
-    return {
-        data: await doc.data(),
-        message: "Successful.",
-        status: 200
-    }
-}
-
-async function makeSubmission(submissionData, authorUID) {
-    let preservedData = {}
-    try {
-        preservedData.timestampGMT = submissionData.timestampGMT
-        preservedData.classID = submissionData.classID
-        preservedData.assignmentID = submissionData.assignmentID
-        preservedData.submissionContent = submissionData.submissionContent
-    } catch (e) {
-        return {
-            data: null,
-            message: "Please format the data correctly.",
-            status: 400
-        }
-    }
-
-    let id = crypto.randomBytes(20).toString('hex')
-    await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(preservedData.assignmentID).collection('submissions').doc(id).set(preservedData)
-    await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(preservedData.assignmentID).collection('submissions').doc(id).update({
-        submissionID: id,
-        submissionAuthor: authorUID
-    })
-    let doc = await db.collection('classes').doc(preservedData.classID).collection('assignments').doc(preservedData.assignmentID).collection('submissions').doc(id).get()
-
-    return {
-        data: await doc.data(),
-        message: "Successful.",
-        status: 200
-    }
-}
-
-
-
-app.post('/students', jsonParser, async (req, res) => {
+app.post('/addUser', jsonParser, async (req, res) => {
     let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
+    if (uid == null) {
         res.status(401)
         res.send({
             code: 401,
-            message: "Please send a valid authentication token."
+            message: 'Please send a valid authentication token.'
         })
     }
     else {
-        let result = await makeStudent(req.body.data)
+        // body needs name, email and username
+        console.log(req)
+        let result = await makeUser(req.body.data)
         res.status(result.status)
         res.send({
             code: result.status,
@@ -377,17 +300,18 @@ app.post('/students', jsonParser, async (req, res) => {
     }
 })
 
-app.post('/teachers', jsonParser, async (req, res) => {
+app.post('/addSpecialContact', jsonParser, async (req, res) => {
     let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
+    if (uid == null) {
         res.status(401)
         res.send({
             code: 401,
-            message: "Please send a valid authentication token."
+            message: 'Please send a valid authentication token.'
         })
     }
     else {
-        let result = await makeTeacher(req.body.data)
+        // body needs name and email
+        let result = await makeSpecialContact(req.body.data)
         res.status(result.status)
         res.send({
             code: result.status,
@@ -397,17 +321,18 @@ app.post('/teachers', jsonParser, async (req, res) => {
     }
 })
 
-app.post('/classes', jsonParser, async (req, res) => {
+app.post('/removeSpecialContact', jsonParser, async (req, res) => {
     let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
+    if (uid == null) {
         res.status(401)
         res.send({
             code: 401,
-            message: "Please send a valid authentication token."
+            message: 'Please send a valid authentication token.'
         })
     }
     else {
-        let result = await makeClass(req.body.data)
+        // body needs name and email
+        let result = await removeSpecialContact(req.body.data)
         res.status(result.status)
         res.send({
             code: result.status,
@@ -417,77 +342,17 @@ app.post('/classes', jsonParser, async (req, res) => {
     }
 })
 
-app.post('/classes/:classID/lessons', jsonParser, async (req, res) => {
+app.post('/addText', jsonParser, async (req, res) => {
     let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
+    if (uid == null) {
         res.status(401)
         res.send({
             code: 401,
-            message: "Please send a valid authentication token."
+            message: 'Please send a valid authentication token.'
         })
     }
     else {
-        let result = await makeLesson(req.body.data)
-        res.status(result.status)
-        res.send({
-            code: result.status,
-            message: result.message,
-            data: result.data
-        })
-    }
-})
-
-app.post('/classes/:classID/posts', jsonParser, async (req, res) => {
-    let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
-        res.status(401)
-        res.send({
-            code: 401,
-            message: "Please send a valid authentication token."
-        })
-    }
-    else {
-        let result = await makePost(req.body.data, uid)
-        res.status(result.status)
-        res.send({
-            code: result.status,
-            message: result.message,
-            data: result.data
-        })
-    }
-})
-
-app.post('/classes/:classID/assignments', jsonParser, async (req, res) => {
-    let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
-        res.status(401)
-        res.send({
-            code: 401,
-            message: "Please send a valid authentication token."
-        })
-    }
-    else {
-        let result = await makeAssignment(req.body.data, uid)
-        res.status(result.status)
-        res.send({
-            code: result.status,
-            message: result.message,
-            data: result.data
-        })
-    }
-})
-
-app.post('/classes/:classID/assignments/:assignmentID/submissions', jsonParser, async (req, res) => {
-    let uid = await verifyIDToken(req.body.token)
-    if (uid != null) {
-        res.status(401)
-        res.send({
-            code: 401,
-            message: "Please send a valid authentication token."
-        })
-    }
-    else {
-        let result = await makeSubmission(req.body.data, uid)
+        let result = await addText(req.body.data)
         res.status(result.status)
         res.send({
             code: result.status,
@@ -498,5 +363,5 @@ app.post('/classes/:classID/assignments/:assignmentID/submissions', jsonParser, 
 })
 
 app.listen(PORT, async () => {
-    console.log("API Listening at localhost")
+    console.log('API Listening at localhost')
 })

@@ -13,6 +13,7 @@ public class MyInputMethodService extends InputMethodService implements Keyboard
     private KeyboardView keyboardView;
     private Keyboard keyboard;
 
+    private String data = "";
     private boolean caps = false;
 
     @Override
@@ -56,7 +57,8 @@ public class MyInputMethodService extends InputMethodService implements Keyboard
                     break;
                 case Keyboard.KEYCODE_DONE:
                     inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
-
+                    Log.d("Typing Test: ", data);
+                    data = "";
                     break;
                 default :
                     char code = (char) primaryCode;
@@ -65,7 +67,9 @@ public class MyInputMethodService extends InputMethodService implements Keyboard
                     if(Character.isLetter(code) && caps){
                         code = Character.toUpperCase(code);
                     }
-                    inputConnection.commitText(String.valueOf(code), 1);
+                    String newData = String.valueOf(code);
+                    data += newData;
+                    inputConnection.commitText(newData, 1);
 
             }
         }

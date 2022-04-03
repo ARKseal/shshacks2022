@@ -61,8 +61,13 @@ public class AuthUIActivity extends AppCompatActivity
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true);
 
         mBinding.signIn.setOnClickListener(view -> signIn());
-        signIn();
 
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() != null) {
+            redirect();
+        } else {
+            signIn();
+        }
         //catchEmailLinkSignIn();
     }
 
@@ -94,6 +99,7 @@ public class AuthUIActivity extends AppCompatActivity
 
     private Intent getSignInIntent(@Nullable String link) {
         AuthUI.SignInIntentBuilder builder = getAuthUI().createSignInIntentBuilder()
+                .setIsSmartLockEnabled(false)
                 .setTheme(getSelectedTheme())
                 .setLogo(getSelectedLogo())
                 .setAvailableProviders(getSelectedProviders());
@@ -110,9 +116,6 @@ public class AuthUIActivity extends AppCompatActivity
 
         FirebaseAuth auth = FirebaseAuth.getInstance();
 
-        if (auth.getCurrentUser() != null && auth.getCurrentUser().isAnonymous()) {
-            builder.enableAnonymousUsersAutoUpgrade();
-        }
         return builder.build();
     }
 
@@ -155,7 +158,7 @@ public class AuthUIActivity extends AppCompatActivity
     }
 
     private void startSignedInActivity(@Nullable IdpResponse response) {
-        startActivity(HomePage.createIntent(this, response));
+        redirect();
     }
 
     @StyleRes
@@ -210,9 +213,8 @@ public class AuthUIActivity extends AppCompatActivity
         redirect();
     }
 
-    public void redirect(){
+    public void redirect() {
         Intent intent = new Intent(this,   redirect.class);
         startActivity(intent);
-
     }
 }
