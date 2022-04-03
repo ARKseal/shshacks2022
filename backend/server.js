@@ -179,6 +179,9 @@ async function sendEmails(userData, count) {
 }
 
 async function analyzeText(form) {
+    var polarity = 0
+    var subjectivity = 0
+
     let url = 'http://localhost:5050/text/'
     request.post({
         headers: { 'content-type': 'application/json' },
@@ -194,11 +197,13 @@ async function analyzeText(form) {
             }
         }
         console.log('Upload successful!  Server responded with:', body);
-        return {
-            polarity: body.polarity,
-            subjectivity: body.subjectivity
-        }
+        polarity = body.polarity,
+        subjectivity = body.subjectivity
     });
+    return {
+        polarity: polarity,
+        subjectivity: subjectivity
+    }
 }
 
 function isInToday(inputDate) {
@@ -219,60 +224,59 @@ async function addText(data) {
             status: 400
         }
     }
-    d = analyzeText(form);
+    d = await analyzeText(form);
     let polarity = d.polarity
     let subjectivity = d.subjectivity
+    console.log(d)
 
     let ref = db.collection('users').doc(username);
-    let currData = ''
     try {
-        let res = await db.runTransaction(async t => {
-            t.get(ref).then(currData => {
-                if (Object.keys(currData.data).length == 28) {
-                    let count = 0;
-                    for (obj in currData.data) {
-                        if (obj.subjectivity > 0.7 && obj.polarity < 0) {
-                            count++;
-                        }
-                    }
-                    if (count >= 21) {
-                        sendEmails(currData, count);
-                    }
-                    t.update(ref, {
-                        data: FieldValue.arrayRemove(currData.data[0])
-                    });
+        let currData = await ref.get()
+        console.log(currData);
+        if (Object.keys(currData.data).length == 28) {
+            let count = 0;
+            for (obj in currData.data) {
+                if (obj.subjectivity > 0.7 && obj.polarity < 0) {
+                    count++;
                 }
-                if (isInToday(new Date(currData.data[-1].time))) {
-                    polarity += currData.data[-1].polarity;
-                    polarity /= 2;
-
-                    subjectivity += currData.data[-1].subjectivity;
-                    subjectivity /= 2;
-
-                    t.update(ref, {
-                        data: FieldValue.arrayRemove(currData.data[-1])
-                    });
-                }
-
-                t.update(ref, {
-                    emergencyContacts: FieldValue.arrayUnion({
-                        time: Timestamp(Date.now()),
-                        polarity: polarity,
-                        subjectivity: subjectivity
-                    })
-                });
-                return d
+            }
+            if (count >= 21) {
+                sendEmails(currData, count);
+            }
+            t.update(ref, {
+                data: FieldValue.arrayRemove(currData.data[0])
             });
+        }
+
+        if (currData.data.length > 0 && isInToday(new Date(currData.data[-1].time))) {
+            polarity += currData.data[-1].polarity;
+            polarity /= 2;
+
+            subjectivity += currData.data[-1].subjectivity;
+            subjectivity /= 2;
+            t.update(ref, {
+                data: FieldValue.arrayRemove(currData.data[-1])
+            });
+        }
+
+        ref.update({
+            emergencyContacts: FieldValue.arrayUnion({
+                time: Date.now(),
+                polarity: polarity,
+                subjectivity: subjectivity
+            })
         });
+
         return {
-            data: res,
+            data: currData,
             message: 'Successful.',
             status: 200
         }
     } catch (e) {
+        console.log(e)
         return {
             data: null,
-            message: 'Unable to add special contact.',
+            message: 'Unable to add special data.',
             status: 400
         }
     }
