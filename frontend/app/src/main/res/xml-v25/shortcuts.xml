@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="auth"
+        android:enabled="true"
+        android:icon="@drawable/firebase_auth_120dp"
+        android:shortcutShortLabel="@string/title_auth_activity">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.choice"
+            android:targetClass="com.example.choice.AuthUIActivity"/>
+    </shortcut>
+</shortcuts>
