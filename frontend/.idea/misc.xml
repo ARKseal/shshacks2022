@@ -7,6 +7,8 @@
         <entry key="app/src/main/res/layout-land/auth_ui_layout.xml" value="0.39929947460595444" />
         <entry key="app/src/main/res/layout/auth_ui_layout.xml" value="0.475" />
         <entry key="app/src/main/res/layout/auths_ui_layout.xml" value="0.1" />
+        <entry key="app/src/main/res/layout/keyboard_preview.xml" value="0.35625" />
+        <entry key="app/src/main/res/layout/keyboard_view.xml" value="0.35625" />
       </map>
     </option>
   </component>
